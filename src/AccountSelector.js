@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { CopyToClipboard } from 'react-copy-to-clipboard'
 
+import { formatBalance } from '@polkadot/util';
+
 import {
   Menu,
   Button,
@@ -112,6 +114,11 @@ function BalanceAnnotation(props) {
   const { api, currentAccount } = useSubstrateState()
   const [accountBalance, setAccountBalance] = useState(0)
 
+  // Set global options for formatBalance
+  formatBalance.setDefaults({
+    decimals: 12,
+    unit: 'VARA', // Replace 'Unit' with your chain's base unit, e.g., 'DOT'
+  });
   // When account address changes, update subscriptions
   useEffect(() => {
     let unsubscribe
@@ -120,7 +127,7 @@ function BalanceAnnotation(props) {
     currentAccount &&
       api.query.system
         .account(acctAddr(currentAccount), balance =>
-          setAccountBalance(balance.data.free.toHuman())
+          setAccountBalance(formatBalance(balance.data.free))
         )
         .then(unsub => (unsubscribe = unsub))
         .catch(console.error)

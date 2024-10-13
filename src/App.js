@@ -21,7 +21,7 @@ import Metadata from './Metadata'
 import NodeInfo from './NodeInfo'
 import TemplateModule from './TemplateModule'
 import Transfer from './Transfer'
-import Upgrade from './Upgrade'
+import Vesting from './Vesting';
 
 function Main() {
   const { apiState, apiError, keyringState } = useSubstrateState()
@@ -75,7 +75,7 @@ function Main() {
           </Grid.Row>
           <Grid.Row>
             <Transfer />
-            <Upgrade />
+            <Vesting />
           </Grid.Row>
           <Grid.Row>
             <Interactor />
