@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/vara-dashboard/static/css/main.c74a3333.css",
-    "main.js": "/vara-dashboard/static/js/main.f83fab4c.js",
+    "main.js": "/vara-dashboard/static/js/main.54e31fd9.js",
     "static/media/brand-icons.svg": "/vara-dashboard/static/media/brand-icons.6729d29753e000c17489.svg",
     "static/media/icons.svg": "/vara-dashboard/static/media/icons.62d9dae4e0040e81c980.svg",
     "static/media/outline-icons.svg": "/vara-dashboard/static/media/outline-icons.9c4845b4b41ef40a22fa.svg",
@@ -20,10 +20,10 @@
     "static/media/outline-icons.woff2": "/vara-dashboard/static/media/outline-icons.687a4990ea22bb1a49d4.woff2",
     "index.html": "/vara-dashboard/index.html",
     "main.c74a3333.css.map": "/vara-dashboard/static/css/main.c74a3333.css.map",
-    "main.f83fab4c.js.map": "/vara-dashboard/static/js/main.f83fab4c.js.map"
+    "main.54e31fd9.js.map": "/vara-dashboard/static/js/main.54e31fd9.js.map"
   },
   "entrypoints": [
     "static/css/main.c74a3333.css",
-    "static/js/main.f83fab4c.js"
+    "static/js/main.54e31fd9.js"
   ]
 }
