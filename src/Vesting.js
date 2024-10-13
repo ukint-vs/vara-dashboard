@@ -1,104 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Grid, Label, Icon } from 'semantic-ui-react';
-import { TxButton } from './substrate-lib/components';
-import { useSubstrateState } from './substrate-lib';
-import { formatBalance } from '@polkadot/util';
-import BN from 'bn.js';
+import React, { useState, useEffect } from 'react'
+import { Form, Grid, Label, Icon } from 'semantic-ui-react'
+import { TxButton } from './substrate-lib/components'
+import { useSubstrateState } from './substrate-lib'
+import { formatBalance } from '@polkadot/util'
+import BN from 'bn.js'
 
 export default function Vesting(props) {
-  const { api, currentAccount } = useSubstrateState();
-  const [vestingInfo, setVestingInfo] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [currentBlock, setCurrentBlock] = useState(0);
-  const [vestedBalance, setVestedBalance] = useState(new BN(0));
-  const [totalLocked, setTotalLocked] = useState(new BN(0));
-  const [remainingLocked, setRemainingLocked] = useState(new BN(0));
+  const { api, currentAccount } = useSubstrateState()
+  const [vestingInfo, setVestingInfo] = useState(null)
+  const [status, setStatus] = useState(null)
+  const [currentBlock, setCurrentBlock] = useState(0)
+  const [totalLocked, setTotalLocked] = useState(new BN(0))
+  const [vestingLocked, setVestingLocked] = useState(new BN(0))
+  const [totalVested, setTotalVested] = useState(new BN(0))
+  const [amountClaimedBefore, setAmountClaimedBefore] = useState(new BN(0))
+  const [amountToUnlock, setAmountToUnlock] = useState(new BN(0))
 
   // Set global options for formatBalance
   formatBalance.setDefaults({
     decimals: 12,
-    unit: 'VARA', // Replace 'Unit' with your chain's base unit, e.g., 'DOT'
-  });
+    unit: 'Unit', // Replace 'Unit' with your chain's base unit, e.g., 'DOT'
+  })
 
   useEffect(() => {
-    let unsubVesting = null;
-    let unsubBlock = null;
+    let unsubVesting = null
+    let unsubLocks = null
+    let unsubBlock = null
 
-    const fetchVestingInfo = async () => {
-      if (!api || !currentAccount) return;
+    const fetchData = async () => {
+      if (!api || !currentAccount) return
 
       // Fetch vesting schedules
-      unsubVesting = await api.query.vesting.vesting(currentAccount.address, (result) => {
-        setVestingInfo(result.isSome ? result.unwrap() : null);
-      });
-      
+      unsubVesting = await api.query.vesting.vesting(
+        currentAccount.address,
+        result => {
+          const vesting = result.isSome ? result.unwrap() : null
+          setVestingInfo(vesting ? vesting : null)
+
+          // Calculate Total Locked
+          if (vesting) {
+            const schedules = Array.isArray(vesting) ? vesting : [vesting]
+            let total = new BN(0)
+            schedules.forEach(schedule => {
+              total = total.add(new BN(schedule.locked.toString()))
+            })
+            setTotalLocked(total)
+          } else {
+            setTotalLocked(new BN(0))
+          }
+        }
+      )
+
+      // Fetch balance locks
+      unsubLocks = await api.query.balances.locks(
+        currentAccount.address,
+        locks => {
+          const vestingLock = locks.find(
+            lock => lock.id.toHuman() === 'vesting '
+          )
+          if (vestingLock) {
+            setVestingLocked(vestingLock.amount.toBn())
+          } else {
+            setVestingLocked(new BN(0))
+          }
+        }
+      )
 
       // Fetch current block number
-      unsubBlock = await api.derive.chain.bestNumber((number) => {
-        setCurrentBlock(number.toNumber());
-      });
-    };
+      unsubBlock = await api.derive.chain.bestNumber(number => {
+        setCurrentBlock(number.toNumber())
+      })
+    }
 
-    fetchVestingInfo();
+    fetchData()
 
     return () => {
-        
-      if (unsubVesting) unsubVesting();
-      if (unsubBlock) unsubBlock();
-    };
-  }, [api, currentAccount]);
+      if (unsubVesting) unsubVesting()
+      if (unsubLocks) unsubLocks()
+      if (unsubBlock) unsubBlock()
+    }
+  }, [api, currentAccount])
 
   useEffect(() => {
     if (!vestingInfo || currentBlock === 0) {
-      setVestedBalance(new BN(0));
-      return;
+      setTotalVested(new BN(0))
+      return
     }
-    
-    let totalVested = new BN(0);
 
-    const schedules = Array.isArray(vestingInfo) ? vestingInfo : [vestingInfo];
+    let totalVestedAmount = new BN(0)
 
-    schedules.forEach((schedule) => {
-      const locked = new BN(schedule.locked);
-      const perBlock = new BN(schedule.perBlock);
-      const startingBlock = new BN(schedule.startingBlock);
+    const schedules = Array.isArray(vestingInfo) ? vestingInfo : [vestingInfo]
 
-      const elapsedBlocks = new BN(currentBlock).sub(startingBlock);
+    schedules.forEach(schedule => {
+      const locked = new BN(schedule.locked)
+      const perBlock = new BN(schedule.perBlock)
+      const startingBlock = new BN(schedule.startingBlock)
+
+      const elapsedBlocks = new BN(currentBlock).sub(startingBlock)
 
       if (elapsedBlocks.lte(new BN(0))) {
         // Vesting hasn't started yet
-        return;
+        return
       }
 
-      const vestedAmount = perBlock.mul(elapsedBlocks);
-      const unlockable = BN.min(vestedAmount, locked);
+      const vestedAmount = BN.min(perBlock.mul(elapsedBlocks), locked)
 
-      totalVested = totalVested.add(unlockable);
-    });
+      totalVestedAmount = totalVestedAmount.add(vestedAmount)
+    })
 
-    setVestedBalance(totalVested);
-  }, [vestingInfo, currentBlock]);
+    setTotalVested(totalVestedAmount)
+  }, [vestingInfo, currentBlock])
 
   useEffect(() => {
-    if (!vestingInfo) {
-      setTotalLocked(new BN(0));
-      setRemainingLocked(new BN(0));
-      return;
+    if (totalVested.isZero()) {
+      setAmountClaimedBefore(new BN(0))
+      return
     }
 
-    let totalLockedAmount = new BN(0);
+    const claimedAmount = totalLocked.sub(vestingLocked)
+    setAmountClaimedBefore(claimedAmount)
+  }, [totalVested, vestingLocked])
 
-    const schedules = Array.isArray(vestingInfo) ? vestingInfo : [vestingInfo];
+  useEffect(() => {
+    if (totalVested.isZero()) {
+      setAmountToUnlock(new BN(0))
+      return
+    }
 
-    schedules.forEach((schedule) => {
-      const locked = new BN(schedule.locked);
-      totalLockedAmount = totalLockedAmount.add(locked);
-    });
-
-    const remaining = totalLockedAmount.sub(vestedBalance);
-    setTotalLocked(totalLockedAmount);
-    setRemainingLocked(remaining);
-  }, [vestingInfo, vestedBalance]);
+    const toUnlock = totalVested.sub(amountClaimedBefore)
+    setAmountToUnlock(toUnlock)
+  }, [totalVested, amountClaimedBefore])
 
   return (
     <Grid.Column width={8}>
@@ -118,14 +149,32 @@ export default function Vesting(props) {
                 <Icon name="lock" />
                 Total Locked: {formatBalance(totalLocked, { withSi: true })}
               </Label>
+              <Label basic color="grey">
+                <Icon name="block layout" />
+                Current Block: {currentBlock}
+              </Label>
               <Label basic color="green">
-                <Icon name="unlock alternate" />
-                Amount to be unlocked: {formatBalance(vestedBalance, { withSi: true })}
+                <Icon name="chart line" />
+                Total Vested: {formatBalance(totalVested, { withSi: true })}
+              </Label>
+              <Label basic color="orange">
+                <Icon name="history" />
+                Amount Claimed Before:{' '}
+                {formatBalance(amountClaimedBefore, { withSi: true })}
+              </Label>
+              <Label basic color="olive">
+                <Icon name="unlock" />
+                Amount to Unlock Now:{' '}
+                {formatBalance(amountToUnlock, { withSi: true })}
               </Label>
               <Label basic color="red">
                 <Icon name="lock" />
-                Remaining Locked: {formatBalance(remainingLocked, { withSi: true })}
+                Remaining Locked:{' '}
+                {formatBalance(vestingLocked, { withSi: true })}
               </Label>
+              <pre style={{ overflowX: 'auto' }}>
+                {JSON.stringify(vestingInfo.toHuman(), null, 2)}
+              </pre>
             </>
           ) : (
             <p>No vesting schedules found for this account.</p>
@@ -148,5 +197,5 @@ export default function Vesting(props) {
         <div style={{ overflowWrap: 'break-word' }}>{status}</div>
       </Form>
     </Grid.Column>
-  );
+  )
 }
