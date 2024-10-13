@@ -19,7 +19,7 @@ export default function Vesting(props) {
   // Set global options for formatBalance
   formatBalance.setDefaults({
     decimals: 12,
-    unit: 'Unit', // Replace 'Unit' with your chain's base unit, e.g., 'DOT'
+    unit: 'VARA', // Replace 'Unit' with your chain's base unit, e.g., 'DOT'
   })
 
   useEffect(() => {
